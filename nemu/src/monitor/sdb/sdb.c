@@ -126,6 +126,22 @@ static int cmd_si(char *args)
 
 static int cmd_info(char *args)
 {
+	char *arg = strtok(NULL, " ");
+    if (arg == NULL)
+    {
+        return 0;
+    }
+
+    if (arg[0] == 'r')
+    {
+        isa_reg_display();
+        return 0;
+    }
+
+    if (arg[0] == 'w')
+    {
+        return 0;
+    }
 	return 0;
 }
 
