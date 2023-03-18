@@ -22,17 +22,59 @@
 
 // this should be enough
 static char buf[65536] = {};
-static char code_buf[65536 + 128] = {}; // a little larger than `buf`
+static char code_buf[65536 + 256] = {}; // a little larger than `buf`
 static char *code_format =
 "#include <stdio.h>\n"
 "int main() { "
-"  unsigned result = %s; "
+"  long long int_result = %s;"
+"  unsigned result = int_result; "
+"  if (int_result >= 0)"
 "  printf(\"%%u\", result); "
 "  return 0; "
 "}";
+static int buf_index = 0;
+static void gen(char ch)
+{
+    if (buf_index >=65535) return;
+    buf[buf_index++] = ch;
+    return;
+}
+static void gen_rand_num()
+{
+    gen(rand()%9 + '1');
+    return;
+}
 
+static void gen_rand_op()
+{
+    int index = rand()%4;
+    char op = ' ';
+    switch(index)
+    {
+        case 1:
+           op = '+';
+           break;
+        case 2:
+           op = '-';
+           break;
+        case 3:
+           op = '*';
+           break;
+        default:
+           op = '/';
+           break;
+    }
+    gen(op);
+    return;
+}
 static void gen_rand_expr() {
-  buf[0] = '\0';
+  if (buf_index >= 65530) return;
+  switch(rand()%3)
+  {
+      case 0: gen_rand_num();break;
+      case 1: gen('('); gen_rand_expr();gen(')');break;
+      default: gen_rand_expr();gen_rand_op();gen_rand_expr();break;
+  }
 }
 
 int main(int argc, char *argv[]) {
@@ -44,7 +86,9 @@ int main(int argc, char *argv[]) {
   }
   int i;
   for (i = 0; i < loop; i ++) {
+    buf_index = 0;
     gen_rand_expr();
+    gen('\0');
 
     sprintf(code_buf, code_format, buf);
 
@@ -60,10 +104,12 @@ int main(int argc, char *argv[]) {
     assert(fp != NULL);
 
     int result;
-    fscanf(fp, "%d", &result);
+    ret = fscanf(fp, "%d", &result);
     pclose(fp);
-
-    printf("%u %s\n", result, buf);
+    //if (ret > 0 && )
+        //printf("%d, %u, %s\n",ret, result, buf);
+    if (ret > 0)
+        printf("%u %s\n", result, buf);
   }
   return 0;
 }

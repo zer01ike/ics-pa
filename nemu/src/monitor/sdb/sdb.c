@@ -68,6 +68,8 @@ static int cmd_w(char *args);
 
 static int cmd_d(char *args);
 
+static int cmd_test_expr(char *args);
+
 static struct {
   const char *name;
   const char *description;
@@ -84,6 +86,7 @@ static struct {
   { "p", "get the answer of expr", cmd_p },
   { "w", "watch point", cmd_w },
   { "d", "delet the watch point", cmd_d },
+  { "test_expr","test the expr program", cmd_test_expr},
 };
 
 #define NR_CMD ARRLEN(cmd_table)
@@ -188,6 +191,40 @@ static int cmd_w(char *args)
 static int cmd_d(char *args)
 {
 	return 0;
+}
+
+static int cmd_test_expr(char *args)
+{
+    FILE *fp = fopen("/home/kane/ics2022/nemu/tools/gen-expr/build/input","r");
+    if (fp == NULL) return 0;
+
+    char * line = NULL;
+    size_t len = 0;
+    ssize_t read;
+    static int test_count = 0;
+    static int success_count = 0;
+    while ((read = getline(&line, &len, fp))!= -1)
+    {
+        char * arg = strtok(line, " ");
+        if (arg == NULL) continue;
+        test_count++;
+        long unsigned int result = atoi(arg);
+        arg = strtok(NULL, "\n");
+        bool success = false;
+        word_t expr_result = expr(arg, &success);
+        if (success && expr_result == result)
+        {
+            success_count++;
+        }
+        else
+        {
+            printf("case: %d, result: %lu, expr_result: %lu, expr: %s\n",test_count, result, expr_result,arg);
+        }
+        //break;
+    }
+    fclose(fp);
+    printf("Success Rate: %.2f%%\n", success_count*1.0f/test_count * 100);
+    return 0;    
 }
 
 void sdb_set_batch_mode() {
