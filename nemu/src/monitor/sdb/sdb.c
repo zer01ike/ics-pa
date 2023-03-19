@@ -179,6 +179,16 @@ static int cmd_x(char *args)
 
 static int cmd_p(char *args)
 {
+    char * arg = strtok(NULL, "\n");
+    if (arg == NULL) return 0;
+    bool success = false;
+    word_t result = expr(arg, &success);   
+    if (success)
+        printf("%ld\n", result);
+    else
+    {
+        printf("Bad Expr!\n");
+    }
 	return 0;
 }
 

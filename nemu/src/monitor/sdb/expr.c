@@ -24,8 +24,11 @@ enum {
   TK_NOTYPE = 256, TK_EQ,
 
   /* TODO: Add more token types */
-  TK_NUM,
-
+  TK_DEC_NUM,
+  TK_HEX_NUM,
+  TK_REG,
+  TK_NEQ,
+  TK_AND
 };
 
 static struct rule {
@@ -37,15 +40,19 @@ static struct rule {
    * Pay attention to the precedence level of different rules.
    */
 
-  {" +", TK_NOTYPE},    // spaces
-  {"\\+", '+'},         // plus
-  {"==", TK_EQ},        // equal
-  {"\\-", '-'},         // mines
-  {"\\*", '*'},         // times
-  {"\\/", '/'},         // divid
-  {"[0-9]",TK_NUM}, // number
-  {"\\(", '('},         // left
-  {"\\)", ')'},         // right
+  {" +",           TK_NOTYPE},// spaces
+  {"\\+",                '+'},// plus
+  {"==",               TK_EQ},// equal
+  {"!=",              TK_NEQ},// not equal
+  {"\\-",                '-'},// mines
+  {"\\*",                '*'},// times
+  {"\\/",                '/'},// divid
+  {"\\(",                '('},// left
+  {"\\)",                ')'},// right
+  {"0x[0-9]{1,}", TK_HEX_NUM},// hex number 
+  {"\\$[a-z0-9]{1,}[0-9]*",TK_REG},// register
+  {"[0-9]{1,}",   TK_DEC_NUM},// decimal number
+  {"&&",              TK_AND},// and
 };
 
 #define NR_REGEX ARRLEN(rules)
@@ -91,8 +98,8 @@ static bool make_token(char *e) {
         char *substr_start = e + position;
         int substr_len = pmatch.rm_eo;
 
-        //Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s",
-            //i, rules[i].regex, position, substr_len, substr_len, substr_start);
+        Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s",
+            i, rules[i].regex, position, substr_len, substr_len, substr_start);
 
         position += substr_len;
 
@@ -113,18 +120,34 @@ static bool make_token(char *e) {
             case '/':
                 tokens[nr_token++] = (struct token){'/',"\0"};
                 break;
-            case TK_NUM:
-                struct token num;
-                num.type = TK_NUM;
-                memset(num.str, 0, 32);
-                strncpy(num.str, substr_start, substr_len);
-                tokens[nr_token++] = num;
-                break;
             case '(':
                 tokens[nr_token++] = (struct token){'(',"\0"};
                 break;
             case ')':
                 tokens[nr_token++] = (struct token){')',"\0"};
+                break;
+            case TK_HEX_NUM:
+                struct token hex_num;
+                hex_num.type = TK_HEX_NUM;
+                memset(hex_num.str, 0, 32);
+                strncpy(hex_num.str, substr_start, substr_len);
+                tokens[nr_token++] = hex_num;
+                break;
+            case TK_DEC_NUM:
+                struct token num;
+                num.type = TK_DEC_NUM;
+                memset(num.str, 0, 32);
+                strncpy(num.str, substr_start, substr_len);
+                tokens[nr_token++] = num;
+                break;
+            case TK_EQ:
+                tokens[nr_token++] = (struct token){TK_EQ, "\0"};
+                break;
+            case TK_NEQ:
+                tokens[nr_token++] = (struct token){TK_NEQ, "\0"};
+                break;
+            case TK_AND:
+                tokens[nr_token++] = (struct token){TK_AND, "\0"};
                 break;
             default: 
                 break;
@@ -156,75 +179,110 @@ bool check_parentheses(int left, int right)
     return true;
 }
 
-int find_major_op(int left, int right)
+int find_major_op(int left, int right, bool *success)
 {
+    if (*success == false) return 0;
     int flag = 0;
-    int sec_i = -1;
+    int eq_or_neq_i = -1;
+    int times_or_divide_i = -1;
+    int plus_or_minus_i = -1;
     for (int i = right; i >=left; i--)
     {
         //printf("i:%d,sec_i:%d,f:%d, t:%c\n",i,sec_i,flag,tokens[i].type);
         if (tokens[i].type == ')') flag++;
-        else if(tokens[i].type == '(') flag--;
-        else if (tokens[i].type != '+' &&
-                 tokens[i].type != '-' &&
-                 tokens[i].type != '*' &&
-                 tokens[i].type != '/')
+        if (tokens[i].type == '(') flag--;
+        if (flag != 0) continue;
+        if (tokens[i].type != '+'    &&
+            tokens[i].type != '-'    &&
+            tokens[i].type != '*'    &&
+            tokens[i].type != '/'    &&
+            tokens[i].type != TK_EQ  &&
+            tokens[i].type != TK_NEQ &&
+            tokens[i].type != TK_AND )
             continue;
-        else if((tokens[i].type == '+' || tokens[i].type == '-') && flag == 0)
+        
+        //get the major from the lowest op
+        if (tokens[i].type == TK_AND) return i;
+        
+        if((tokens[i].type == TK_EQ || tokens[i].type == TK_NEQ) && eq_or_neq_i == -1)
         {
-            //printf("ret:%d\n", i);    
-            return i;
+            eq_or_neq_i = i;
+            continue;
         }
 
-        else if((tokens[i].type == '*' || tokens[i].type == '/') && sec_i == -1 && flag == 0)
+        if((tokens[i].type == '*' || tokens[i].type == '/') && times_or_divide_i == -1)
         {
-            sec_i = i;
+            times_or_divide_i = i;
+            continue;
+        }
+
+        if((tokens[i].type == '+' || tokens[i].type == '-') && plus_or_minus_i == -1)
+        {
+            plus_or_minus_i = i;
         }
         //printf("i:%d,sec_i:%d,f:%d\n",i,sec_i,flag);
     }
-    if (sec_i == -1) return -1;
+    if (eq_or_neq_i != -1) return eq_or_neq_i;
+    if (times_or_divide_i != -1) return times_or_divide_i;
+    if (plus_or_minus_i != -1) return plus_or_minus_i;
+    
     //printf("ret:%d\n", sec_i);
-    return sec_i;
+    *success = false;
+    return -1;
 }
 
 long long eval(int left, int right, bool *success)
 {
     if (*success == false) return 0;
+    
     if (left > right) return 0;
-    else if (left == right) {
-        return atoi(tokens[left].str);
-    }
-    else if (check_parentheses(left, right)) return eval(left + 1, right -1, success);
-    else
+    
+    if (left == right) 
     {
-        int major_op_index = find_major_op(left, right);
-        //printf("major_op: %d\n", major_op_index);
-        if (major_op_index < 0) {
-            *success = false;
-            return 0;
-        }
-        long long val1 = eval(left, major_op_index-1, success);
-        long long val2 = eval(major_op_index+1,right, success);
-        //printf("l:%lld, r:%lld, i:%d\n",val1, val2, major_op_index);
-        
-        switch(tokens[major_op_index].type)
+        switch(tokens[left].type)
         {
-            case '+': return val1 + val2;
-            case '-': return val1 - val2;
-            case '*': return val1 * val2;
-            case '/': 
-            {
-                if (val2 == 0)
-                {
-                    printf("divided 0!\n");
-                    *success = false;
-                    return 0;
-                }
-                return val1 / val2;
-            }
+            case TK_DEC_NUM: return atoi(tokens[left].str);
+            case TK_HEX_NUM: return strtol(tokens[left].str, NULL, 0);
+            case TK_REG    : return isa_reg_str2val(tokens[left].str, success);
             default:
-                      assert(0);
+                 *success = false;
+                 printf("Exception: No right Type!\n");
+                 return 0;
         }
+    }
+    
+    if (check_parentheses(left, right)) return eval(left + 1, right -1, success);
+    
+    int major_op_index = find_major_op(left, right, success);
+    //printf("major_op: %d\n", major_op_index);
+    if (*success == false) {
+        return 0;
+    }
+    
+    long long val1 = eval(left, major_op_index-1, success);
+    long long val2 = eval(major_op_index+1,right, success);
+    //printf("l:%lld, r:%lld, i:%d\n",val1, val2, major_op_index);
+    
+    switch(tokens[major_op_index].type)
+    {
+        case '+': return val1 + val2;
+        case '-': return val1 - val2;
+        case '*': return val1 * val2;
+        case '/': 
+        {
+            if (val2 == 0)
+            {
+                printf("divided 0!\n");
+                *success = false;
+                return 0;
+            }
+            return val1 / val2;
+        }
+        case TK_EQ:  return val1==val2;
+        case TK_NEQ: return val1!=val2;
+        case TK_AND: return val1&&val2;
+        default:
+            assert(0);
     }
 
 }
