@@ -22,7 +22,8 @@ typedef struct watchpoint {
   struct watchpoint *next;
 
   /* TODO: Add more members if necessary */
-
+  char str_expr[32];
+  word_t val;
 } WP;
 
 static WP wp_pool[NR_WP] = {};
@@ -40,4 +41,95 @@ void init_wp_pool() {
 }
 
 /* TODO: Implement the functionality of watchpoint */
+static WP* new_wp()
+{
+    if (free_== NULL)
+    {
+        printf("no space!\n");
+        assert(0);
+    }
+    WP* ret = head;
+    if (head == NULL)
+    {
+        head = free_;
+        head->next = NULL;
+        ret=head;
+    }
+    else
+    {
+        head->next = free_;
+        ret = head->next;
+        ret->next=NULL;
+    }
 
+    free_ = free_->next;
+
+    return ret;
+}
+
+static void free_wp(WP *wp)
+{
+    if (wp == NULL) return;
+    WP* exist = head;
+    if (exist->NO == wp->NO)
+    {
+        exist->next = free_;
+        free_ = exist;
+        head = NULL;
+        return;
+    }
+    while (exist->next!=NULL)
+    {
+        if (wp->NO == exist->next->NO)
+        {
+            exist->next = exist->next->next;
+            wp->next = free_;
+            free_ = wp;
+            return;
+        }
+        exist = exist->next;
+    }
+}
+
+int add_watchpoint(char* str_expr, word_t val)
+{
+    WP* wp = new_wp();
+    strncpy(wp->str_expr, str_expr, 32);
+    wp->val = val;
+    return wp->NO;
+}
+
+bool delete_watchpoint(int NO)
+{
+    WP* wp = head;
+    while(wp != NULL)
+    {
+        if (wp->NO == NO)
+        {
+            free_wp(wp);
+            return true;
+        }
+        wp = wp->next;
+    }
+    return false;
+}
+
+bool watchpoint_difftest()
+{
+    WP* cur = head;
+    bool success = false;
+    while (cur!=NULL)
+    {
+        word_t val = expr(cur->str_expr, &success);
+        if (cur->val != val) 
+        {
+            cur->val = val;
+            printf("Stop here!\n");
+            return true;
+        }
+
+        cur = cur->next;
+    }
+
+    return false;
+}

@@ -19,7 +19,7 @@
  * Type 'man regex' for more information about POSIX regex functions.
  */
 #include <regex.h>
-
+#include <memory/paddr.h>
 enum {
   TK_NOTYPE = 256, TK_EQ,
 
@@ -28,7 +28,8 @@ enum {
   TK_HEX_NUM,
   TK_REG,
   TK_NEQ,
-  TK_AND
+  TK_AND,
+  TK_DEREF,
 };
 
 static struct rule {
@@ -98,8 +99,8 @@ static bool make_token(char *e) {
         char *substr_start = e + position;
         int substr_len = pmatch.rm_eo;
 
-        Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s",
-            i, rules[i].regex, position, substr_len, substr_len, substr_start);
+        //Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s",
+            //i, rules[i].regex, position, substr_len, substr_len, substr_start);
 
         position += substr_len;
 
@@ -149,6 +150,13 @@ static bool make_token(char *e) {
             case TK_AND:
                 tokens[nr_token++] = (struct token){TK_AND, "\0"};
                 break;
+            case TK_REG:
+                struct token reg;
+                reg.type = TK_REG;
+                memset(reg.str, 0, 32);
+                strncpy(reg.str, substr_start, substr_len);
+                tokens[nr_token++] = reg;
+                break;
             default: 
                 break;
         }
@@ -183,6 +191,7 @@ int find_major_op(int left, int right, bool *success)
 {
     if (*success == false) return 0;
     int flag = 0;
+    int and_i = -1;
     int eq_or_neq_i = -1;
     int times_or_divide_i = -1;
     int plus_or_minus_i = -1;
@@ -198,11 +207,17 @@ int find_major_op(int left, int right, bool *success)
             tokens[i].type != '/'    &&
             tokens[i].type != TK_EQ  &&
             tokens[i].type != TK_NEQ &&
-            tokens[i].type != TK_AND )
+            tokens[i].type != TK_AND &&
+            tokens[i].type != TK_DEREF) 
             continue;
         
         //get the major from the lowest op
-        if (tokens[i].type == TK_AND) return i;
+        if (tokens[i].type == TK_DEREF) return i;
+        if (tokens[i].type == TK_AND && and_i == -1) 
+        {
+            and_i = i;
+            continue;
+        }
         
         if((tokens[i].type == TK_EQ || tokens[i].type == TK_NEQ) && eq_or_neq_i == -1)
         {
@@ -281,6 +296,7 @@ long long eval(int left, int right, bool *success)
         case TK_EQ:  return val1==val2;
         case TK_NEQ: return val1!=val2;
         case TK_AND: return val1&&val2;
+        case TK_DEREF: return paddr_read(val2, 4);
         default:
             assert(0);
     }
@@ -294,6 +310,23 @@ word_t expr(char *e, bool *success) {
   }
 
   /* TODO: Insert codes to evaluate the expression. */
+
+  for (int i = 0; i < nr_token; i++)
+  {
+      if (tokens[i].type == '*' &&
+          (i == 0                    || 
+           tokens[i-1].type == '+'   ||
+           tokens[i-1].type == '-'   ||
+           tokens[i-1].type == '*'   ||
+           tokens[i-1].type == '/'   ||
+           tokens[i-1].type == TK_EQ ||
+           tokens[i-1].type == TK_NEQ ||
+           tokens[i-1].type == TK_AND))
+      {
+          tokens[i].type = TK_DEREF;
+      }
+  }
+
   *success = true;
   word_t ret = eval(0, nr_token-1, success);
   return ret;

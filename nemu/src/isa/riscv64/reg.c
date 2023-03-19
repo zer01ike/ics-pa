@@ -31,5 +31,21 @@ void isa_reg_display() {
 }
 
 word_t isa_reg_str2val(const char *s, bool *success) {
-  return 0;
+    *success = true;
+    if (strncmp(reg_name(0,3), s, 2) == 0)
+    {
+        return gpr(0);
+    }
+    const char * t = s + 1;
+    //printf("%s\n", t);
+    for (int i = 1; i < 32; i++)
+    {
+        if (strncmp(reg_name(i, 3), t, 3) == 0)
+        {
+            return gpr(i);
+        }
+    }
+    printf("no reg find!\n");
+    *success = false;
+    return 0;
 }

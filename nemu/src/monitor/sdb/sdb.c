@@ -151,6 +151,7 @@ static int cmd_info(char *args)
 
 static int cmd_x(char *args)
 {
+    bool success = false;
     char *arg = strtok(NULL, " ");
     if (arg == NULL)
     {
@@ -166,7 +167,7 @@ static int cmd_x(char *args)
         return 0;
     }
 
-    word_t addr = (word_t)strtol(arg, NULL, 16);
+    word_t addr = expr(arg, &success);
     for (int i = 0; i < sz; i++)
     {
         word_t content = paddr_read(addr, 4);
@@ -195,11 +196,36 @@ static int cmd_p(char *args)
 
 static int cmd_w(char *args)
 {
+    char* arg = strtok(NULL, "\n");
+    if (arg == NULL) return 0;
+    bool success = false;
+    word_t val = expr(arg, &success);
+    if (success)
+    {
+        printf("try add wp\n");
+        int NO = add_watchpoint(arg, val);
+        printf("add wp: %d\n", NO);
+    }
+    else
+    {
+        printf("add wp fail!\n");
+    }
 	return 0;
 }
 
 static int cmd_d(char *args)
 {
+    char * arg = strtok(NULL, "\n");
+    if (arg == NULL) return 0;
+    int NO = atoi(arg);
+    if (delete_watchpoint(NO))
+    {
+        printf("delete wp Success!\n");
+    }
+    else
+    {
+        printf("delete wp Fail No such wp!\n");
+    }
 	return 0;
 }
 
