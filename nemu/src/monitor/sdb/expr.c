@@ -50,7 +50,7 @@ static struct rule {
   {"\\/",                '/'},// divid
   {"\\(",                '('},// left
   {"\\)",                ')'},// right
-  {"0x[0-9]{1,}", TK_HEX_NUM},// hex number 
+  {"0x[A-Za-z0-9]{1,}", TK_HEX_NUM},// hex number 
   {"\\$[a-z0-9]{1,}[0-9]*",TK_REG},// register
   {"[0-9]{1,}",   TK_DEC_NUM},// decimal number
   {"&&",              TK_AND},// and
