@@ -20,6 +20,7 @@
  */
 #include <regex.h>
 #include <memory/paddr.h>
+#include <cpu/cpu.h>
 enum {
   TK_NOTYPE = 256, TK_EQ,
 
@@ -30,6 +31,7 @@ enum {
   TK_NEQ,
   TK_AND,
   TK_DEREF,
+  TK_PC,
 };
 
 static struct rule {
@@ -51,7 +53,8 @@ static struct rule {
   {"\\(",                '('},// left
   {"\\)",                ')'},// right
   {"0x[A-Za-z0-9]{1,}", TK_HEX_NUM},// hex number 
-  {"\\$[a-z0-9]{1,}[0-9]*",TK_REG},// register
+  {"\\$[Pp][Cc]"            ,TK_PC},  // pcr
+  {"\\$[a-z0-9]{1,}[0-9]*",TK_REG}, // register
   {"[0-9]{1,}",   TK_DEC_NUM},// decimal number
   {"&&",              TK_AND},// and
 };
@@ -149,6 +152,9 @@ static bool make_token(char *e) {
                 break;
             case TK_AND:
                 tokens[nr_token++] = (struct token){TK_AND, "\0"};
+                break;
+            case TK_PC:
+                tokens[nr_token++] = (struct token){TK_PC, "\0"};
                 break;
             case TK_REG:
                 struct token reg;
@@ -259,6 +265,7 @@ long long eval(int left, int right, bool *success)
             case TK_DEC_NUM: return atoi(tokens[left].str);
             case TK_HEX_NUM: return strtol(tokens[left].str, NULL, 0);
             case TK_REG    : return isa_reg_str2val(tokens[left].str, success);
+            case TK_PC     : return (long long)get_pc();
             default:
                  *success = false;
                  printf("Exception: No right Type!\n");

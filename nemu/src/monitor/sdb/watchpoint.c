@@ -52,17 +52,18 @@ static WP* new_wp()
     if (head == NULL)
     {
         head = free_;
+        free_ = free_->next;
         head->next = NULL;
         ret=head;
     }
     else
     {
-        head->next = free_;
-        ret = head->next;
-        ret->next=NULL;
+        WP* head_copy = head;
+        head = free_;
+        free_ = free_->next;
+        head->next = head_copy;
+        ret = head;
     }
-
-    free_ = free_->next;
 
     return ret;
 }
@@ -70,21 +71,25 @@ static WP* new_wp()
 static void free_wp(WP *wp)
 {
     if (wp == NULL) return;
-    WP* exist = head;
-    if (exist->NO == wp->NO)
+    if (wp == head)
     {
-        exist->next = free_;
-        free_ = exist;
-        head = NULL;
+        head = wp->next;
+        WP* free_copy = free_;
+        free_= wp;
+        free_->next = free_copy;
         return;
     }
+   
+    WP* exist = head;
     while (exist->next!=NULL)
     {
-        if (wp->NO == exist->next->NO)
+        if (wp == exist->next)
         {
+            WP* need_free = exist->next;
             exist->next = exist->next->next;
-            wp->next = free_;
-            free_ = wp;
+            WP* free_copy = free_;
+            free_=need_free;
+            free_->next = free_copy;
             return;
         }
         exist = exist->next;
@@ -132,4 +137,14 @@ bool watchpoint_difftest()
     }
 
     return false;
+}
+
+void print_wp_info()
+{
+    WP* cur = head;
+    while(cur!=NULL)
+    {
+        printf("%02d, %ld, %s\n", cur->NO, cur->val, cur->str_expr);
+        cur = cur->next;
+    }
 }

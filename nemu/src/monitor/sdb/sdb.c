@@ -144,6 +144,7 @@ static int cmd_info(char *args)
 
     if (arg[0] == 'w')
     {
+        print_wp_info();
         return 0;
     }
 	return 0;

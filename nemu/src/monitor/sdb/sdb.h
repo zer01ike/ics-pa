@@ -21,4 +21,5 @@
 word_t expr(char *e, bool *success);
 int add_watchpoint(char* str_expr, word_t val);
 bool delete_watchpoint(int NO);
+void print_wp_info();
 #endif
