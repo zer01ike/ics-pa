@@ -48,7 +48,7 @@ static void decode_operand(Decode *s, int *dest, word_t *src1, word_t *src2, wor
     case TYPE_R: src1R(); src2R();         break;
     case TYPE_B: src1R(); src2R(); immB(); break;
   }
-  printf("pc:%lx, type:%d, dest: %d, rd:%d, rs1:%d, rs2:%d, src1:%lx, src2:%lx, imm:%lx\n",s->pc, type, *dest, rd, rs1, rs2, *src1, *src2, *imm);
+  //printf("pc:%lx, type:%d, dest: %d, rd:%d, rs1:%d, rs2:%d, src1:%lx, src2:%lx, imm:%lx\n",s->pc, type, *dest, rd, rs1, rs2, *src1, *src2, *imm);
 }
 
 static int decode_exec(Decode *s) {
@@ -85,7 +85,8 @@ static int decode_exec(Decode *s) {
   INSTPAT("000000? ????? ????? 101 ????? 00110 11", srliw  , I, if(BITS(imm,5,5) == 0) R(dest) = SEXT(BITS(src1,31,0) >> BITS(imm, 5, 0),32));
   INSTPAT("010000? ????? ????? 101 ????? 00100 11", srai   , I, R(dest) = (((sword_t)src1) >> BITS(imm, 5, 0)));//c0
   INSTPAT("010000? ????? ????? 101 ????? 00110 11", sraiw  , I, if(BITS(imm,5,5) == 0) R(dest) = SEXT(((int32_t)BITS(src1,31,0) >> BITS(imm, 5, 0)),64));//c0
-  INSTPAT("010000? ????? ????? 101 ????? 01110 11", sraw   , R, R(dest) = SEXT(BITS(src1, 31, 0) >> BITS(src2, 4, 0),64));
+  INSTPAT("010000? ????? ????? 101 ????? 01110 11", sraw   , R, R(dest) = SEXT((int32_t)BITS(src1, 31, 0) >>BITS(src2, 4, 0),64));
+  INSTPAT("000000? ????? ????? 101 ????? 01110 11", srlw   , R, R(dest) = SEXT(BITS(src1, 31, 0) >>BITS(src2, 4, 0),64));
   INSTPAT("??????? ????? ????? 100 ????? 00100 11", xori   , I, R(dest) = (src1 ^ imm));
   INSTPAT("??????? ????? ????? 000 ????? 01000 11", sb     , S, Mw(src1 + imm, 1, BITS(src2, 7, 0))); //c0
   INSTPAT("??????? ????? ????? 001 ????? 01000 11", sh     , S, Mw(src1 + SEXT(imm, 64), 2, BITS(src2,15,0))); //c0
